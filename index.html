@@ -249,6 +249,14 @@ const PERKS=[
 let S;
 function newState(){return{credits:200,door:100,wave:0,kills:0,combo:0,comboT:0,grid:[...Array(ROWS)].map(()=>Array(COLS).fill(null)),units:[],zombies:[],proj:[],parts:[],texts:[],bolts:[],corpses:[],sparks:[],rings:[],queue:[],spawnT:0,spawnI:2,phase:'break',breakT:5,fury:0,fever:0,shake:0,flash:0,flashC:'#fff',freeSpins:1,freeBet:10,lucky:0,pot:500,multSpins:0,over:false,time:0,tapCd:0,pk:{dmg:1,rate:1,tap:1,hp:1,pay:1,inc:1,crit:.18}};}
 let best=0;try{best=+localStorage.getItem('zcd_best')||0;}catch(e){}
+/* 솔로운영 앱 오락실 연동: ?arcade=1&store=가게이름 으로 열리면 게임오버 때 점수를 앱으로 전달(postMessage). 규칙·밸런스는 그대로 */
+const ARC=(()=>{let store='',arcade=false;try{const q=new URLSearchParams(location.search);store=(q.get('store')||'').replace(/[<>]/g,'').trim().slice(0,30);arcade=q.get('arcade')==='1';}catch(e){}return{store,arcade};})();
+function arcadeReport(score,wave,kills){const at=Date.now();
+ try{const bs=+localStorage.getItem('jinsang_best')||0;if(score>bs)localStorage.setItem('jinsang_best',score);localStorage.setItem('jinsang_last',JSON.stringify({score,wave,kills,store:ARC.store,at}));}catch(e){}
+ const msg={type:'SOLO_ARCADE_SCORE',game:'jinsang',score,store:ARC.store||'',at};let sent=false;
+ try{if(window.opener&&window.opener!==window){window.opener.postMessage(msg,'*');sent=true;}}catch(e){}
+ try{if(window.parent&&window.parent!==window){window.parent.postMessage(msg,'*');sent=true;}}catch(e){}
+ return sent;}
 let paused=true,choosing=false,speed=1,selected=null,popUnit=null,hs=0;
 
 /* ---------- FX ---------- */
@@ -554,7 +562,8 @@ $('helpClose').onclick=()=>{$('helpOv').classList.add('hide');paused=helpPaused;
 $('nextBtn').onclick=()=>{if(S.phase==='break'&&!choosing){gain(Math.ceil(S.breakT)*3,W/2,300);S.breakT=0;}};
 $('startBtn').onclick=()=>{ac();$('startOv').classList.add('hide');paused=false;SFX.wave();};
 $('restartBtn').onclick=()=>{reset();$('overOv').classList.add('hide');paused=false;};
-function gameOver(){if(S.over)return;S.over=true;if(auto)$('autoBtn').onclick();if(S.wave>best){best=S.wave;try{localStorage.setItem('zcd_best',best);}catch(e){}}$('overTxt').innerHTML=`웨이브 ${S.wave} · 진상손님 ${S.kills}명 퇴마<br>최고 기록: 웨이브 ${best}`;setTimeout(()=>$('overOv').classList.remove('hide'),900);SFX.boom();vib(300);}
+function gameOver(){if(S.over)return;S.over=true;if(auto)$('autoBtn').onclick();if(S.wave>best){best=S.wave;try{localStorage.setItem('zcd_best',best);}catch(e){}}const arcScore=S.wave*100+S.kills,arcSent=arcadeReport(arcScore,S.wave,S.kills),arcEsc=t=>String(t).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+$('overTxt').innerHTML=`웨이브 ${S.wave} · 진상손님 ${S.kills}명 퇴마<br>최고 기록: 웨이브 ${best}<br><span style="display:block;margin-top:6px;font-size:.78em;opacity:.9">점수 ${arcScore.toLocaleString()}점 · ${(arcSent||ARC.arcade)&&ARC.store?`이 점수가 솔로운영 앱 랭킹(${arcEsc(ARC.store)})으로 올라가요`:arcSent||ARC.arcade?'이 점수가 솔로운영 앱 랭킹으로 올라가요':'솔로운영 앱 오락실에서 열면 가게 이름으로 랭킹에 올라가요'}</span>`;setTimeout(()=>$('overOv').classList.remove('hide'),900);SFX.boom();vib(300);}
 function reset(){layout();fit();S=newState();selected=null;choosing=false;hidePop();lastHud='';selectCard(null);$('nextBtn').classList.add('hide');$('perkOv').classList.add('hide');}
 function fit(){const w=$('wrap'),s=Math.min((w.clientWidth-4)/W,(w.clientHeight-4)/H);cv.style.width=Math.floor(W*s)+'px';cv.style.height=Math.floor(H*s)+'px';if(popUnit)renderPop();}
 window.addEventListener('resize',fit);
